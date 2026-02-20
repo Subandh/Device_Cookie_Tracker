@@ -1,0 +1,84 @@
+<!-- public/login.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f9; display:flex; justify-content:center; align-items:center; height:100vh; }
+    .card { background:#fff; padding:30px; border-radius:10px; width:350px; box-shadow:0 5px 15px rgba(0,0,0,0.1); }
+    input { width:100%; padding:10px; margin:8px 0; border-radius:5px; border:1px solid #ccc; }
+    button { width:100%; padding:10px; border:none; background:#4CAF50; color:#fff; border-radius:5px; cursor:pointer; }
+    button:hover { background:#45a049; }
+    .error { color:red; font-size:14px; }
+    .success { color:green; font-size:14px; }
+    .muted { color:#666; font-size:13px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Login</h2>
+
+  <p class="muted">Device tracking is enabled on this site.</p>
+
+  <input type="email" id="email" placeholder="Email" required />
+  <input type="password" id="password" placeholder="Password" required />
+
+  <button onclick="login()">Login</button>
+
+  <p id="message"></p>
+</div>
+
+<script>
+  // Create a local device_id for login/device table purposes (per user)
+  // NOTE: For anonymous visit tracking, we use a cookie set by /api/track/visit
+  if (!localStorage.getItem("device_id")) {
+    localStorage.setItem("device_id", crypto.randomUUID());
+  }
+
+  // Track a visit whenever this page is opened
+  fetch("/api/track/visit", { method: "POST", credentials: "same-origin" }).catch(()=>{});
+
+  async function login() {
+    const message = document.getElementById("message");
+    message.className = "";
+    message.textContent = "Logging in...";
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        credentials: "same-origin",
+        body: JSON.stringify({
+          email: email.value,
+          password: password.value,
+          device_id: localStorage.getItem("device_id")
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        await fetch("/api/track/visit",{
+method:"POST",
+credentials:"same-origin"
+});
+        message.className = "success";
+        message.textContent = data.message || "Login successful!";
+        // Redirect based on role
+        setTimeout(() => {
+          if (data.role === "admin") window.location.href = "/admin.html";
+          else window.location.href = "/login.html"; // change to your user dashboard if you have one
+        }, 600);
+      } else {
+        message.className = "error";
+        message.textContent = data.message || "Login failed";
+      }
+    } catch (e) {
+      message.className = "error";
+      message.textContent = "Network error";
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!-- public/admin.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Dashboard</title>
+  <style>
+    body { font-family: Arial; background:#f4f6f9; padding:20px; }
+    h1 { margin-bottom: 10px; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; }
+    .logout { padding:8px 15px; background:#f44336; color:#fff; border:none; border-radius:5px; cursor:pointer; }
+    .stats { display:flex; gap:20px; margin-bottom:20px; flex-wrap: wrap; }
+    .box { background:#fff; padding:20px; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.1); flex:1; min-width: 180px; text-align:center; }
+    .grid { display:grid; grid-template-columns: 1fr; gap: 18px; }
+    .card { background:#fff; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); overflow:hidden; }
+    .card h2 { margin:0; padding:14px 16px; border-bottom:1px solid #eee; font-size:16px; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:10px; border-bottom:1px solid #ddd; text-align:center; }
+    th { background:#4CAF50; color:#fff; }
+    .muted { color:#666; font-size: 13px; padding: 0 16px 12px; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Admin Dashboard</h1>
+  <button class="logout" onclick="logout()">Logout</button>
+</div>
+
+<div class="stats">
+  <div class="box" id="users"></div>
+  <div class="box" id="devices"></div>
+  <div class="box" id="logins"></div>
+  <div class="box" id="visitors"></div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Anonymous Device Visits (cookie device_id)</h2>
+    <div class="muted">Counts increase whenever <code>/api/track/visit</code> is called (e.g., on page load).</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Device ID</th>
+          <th>Visit Count</th>
+          <th>Last Seen</th>
+        </tr>
+      </thead>
+      <tbody id="visitTable"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Logged-in Devices (per user login)</h2>
+    <div class="muted">These are devices recorded during login (using localStorage device_id).</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Device ID</th>
+          <th>Login Count</th>
+          <th>Last Seen</th>
+        </tr>
+      </thead>
+      <tbody id="deviceTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // Track admin page visit too
+  fetch("/api/track/visit", { method: "POST", credentials: "same-origin" }).catch(()=>{});
+
+  async function loadDashboard() {
+    const res = await fetch("/api/admin/dashboard", { credentials: "same-origin" });
+
+    if (!res.ok) {
+      alert("Not authorized");
+      window.location.href = "/login.html";
+      return;
+    }
+
+    const data = await res.json();
+
+    users.innerHTML = `<h2>${data.total_users}</h2><p>Total Users</p>`;
+    devices.innerHTML = `<h2>${data.total_devices}</h2><p>Total Login Devices</p>`;
+    logins.innerHTML = `<h2>${data.total_logins}</h2><p>Total Logins</p>`;
+    visitors.innerHTML = `<h2>${data.total_visitors}</h2><p>Total Visitor Devices</p>`;
+
+    // Visit stats table (anonymous cookie device_id)
+    const vTable = document.getElementById("visitTable");
+    vTable.innerHTML = "";
+    (data.visit_stats || []).forEach((v) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(v.device_id)}</td>
+        <td>${v.visit_count}</td>
+        <td>${formatDate(v.last_seen)}</td>
+      `;
+      vTable.appendChild(tr);
+    });
+
+    // Logged-in devices table (per user)
+    const dTable = document.getElementById("deviceTable");
+    dTable.innerHTML = "";
+    (data.device_stats || []).forEach((d) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(d.email)}</td>
+        <td>${escapeHtml(d.device_id)}</td>
+        <td>${d.login_count}</td>
+        <td>${formatDate(d.last_seen)}</td>
+      `;
+      dTable.appendChild(tr);
+    });
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }).catch(()=>{});
+    window.location.href = "/login.html";
+  }
+
+  function formatDate(val) {
+    if (!val) return "-";
+    try { return new Date(val).toLocaleString(); } catch { return String(val); }
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

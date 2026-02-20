@@ -1,0 +1,22 @@
+<input id="email">
+<input id="password">
+
+<button onclick="register()">Register</button>
+
+<script>
+async function register(){
+
+await fetch("/api/auth/register",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+email:email.value,
+password:password.value
+})
+})
+
+alert("Registered");
+}
+</script>
